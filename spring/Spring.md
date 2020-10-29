@@ -6,7 +6,7 @@
 
 
 
-![Bean的生命周期](D:%5CLearningSpace%5C%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0%5Cspring%5CSpring.assets%5C5-1ZF1100325116.png)
+![Bean的生命周期](Spring.assets%5C5-1ZF1100325116.png)
 
 
 Bean 生命周期的整个执行过程描述如下。
