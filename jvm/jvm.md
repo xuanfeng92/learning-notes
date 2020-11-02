@@ -1880,7 +1880,7 @@ public class RuntimeConstantPoolOOM {
 
 **首先我用下图让大家了解它的构造区别：**
 
-![在这里插入图片描述](D:%5CLearningSpace%5Clearning-notes%5Cjvm%5Cjvm.assets%5C20190706155611749.PNG)
+![在这里插入图片描述](jvm.assets%5C20190706155611749.PNG)
 
 **从图中我们可以看到，jdk1.7相较jdk1.8多了一个方法区（一般这么说，其实是永久代），而jdk1.8则多了一个元空间。**
 
