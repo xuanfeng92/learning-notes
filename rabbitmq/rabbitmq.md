@@ -1171,6 +1171,194 @@ public class Recv2 {
 
 
 
+
+
+# 如何保证消息不被重复消费
+
+## **1. 重复消息的场景**
+
+为什么会出现消息重复？消息重复的原因有两个：1.生产时消息重复，2.消费时消息重复。
+
+### **1.1 生产时消息重复** 
+
+由于生产者发送消息给MQ，在MQ确认的时候出现了网络波动，生产者没有收到确认，实际上MQ已经接收到了消息。这时候生产者就会重新发送一遍这条消息。
+
+生产者中如果消息未被确认，或确认失败，我们可以使用定时任务+（redis/db）来进行消息重试。
+
+```javascript
+@Component
+@Slf4J
+public class SendMessage {
+    @Autowired
+    private MessageService messageService;
+
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
+
+    // 最大投递次数
+    private static final int MAX_TRY_COUNT = 3;
+
+    /**
+     * 每30s拉取投递失败的消息, 重新投递
+     */
+    @Scheduled(cron = "0/30 * * * * ?")
+    public void resend() {
+        log.info("开始执行定时任务(重新投递消息)");
+
+        List<MsgLog> msgLogs = messageService.selectTimeoutMsg();
+        msgLogs.forEach(msgLog -> {
+            String msgId = msgLog.getMsgId();
+            if (msgLog.getTryCount() >= MAX_TRY_COUNT) {
+                messageService.updateStatus(msgId, Constant.MsgLogStatus.DELIVER_FAIL);
+                log.info("超过最大重试次数, 消息投递失败, msgId: {}", msgId);
+            } else {
+                messageService.updateTryCount(msgId, msgLog.getNextTryTime());// 投递次数+1
+
+                CorrelationData correlationData = new CorrelationData(msgId);
+                rabbitTemplate.convertAndSend(msgLog.getExchange(), msgLog.getRoutingKey(), MessageHelper.objToMsg(msgLog.getMsg()), correlationData);// 重新投递
+
+                log.info("第 " + (msgLog.getTryCount() + 1) + " 次重新投递消息");
+            }
+        });
+
+        log.info("定时任务执行结束(重新投递消息)");
+    }
+}
+```
+
+### **1.2消费时消息重复** 
+
+消费者消费成功后，再给MQ确认的时候出现了网络波动，MQ没有接收到确认，为了保证消息被消费，MQ就会继续给消费者投递之前的消息。这时候消费者就接收到了两条一样的消息。
+
+**修改消费者，模拟异常**
+
+```javascript
+@RabbitListener(queuesToDeclare = @Queue(value = "javatrip", durable = "true"))
+public void receive(String message, @Headers Map<String,Object> headers, Channel channel) throws Exception{
+
+    System.out.println("重试"+System.currentTimeMillis());
+    System.out.println(message);
+    int i = 1 / 0;
+}
+```
+
+**配置yml重试策略**
+
+```javascript
+spring:
+  rabbitmq:
+    listener:
+      simple:
+        retry:
+          enabled: true # 开启消费者进行重试
+          max-attempts: 5 # 最大重试次数
+          initial-interval: 3000 # 重试时间间隔
+```
+
+**由于重复消息是由于网络原因造成的，因此不可避免重复消息。但是我们需要保证消息的幂等性**。
+
+
+
+## **2. 如何保证消息幂等性** 
+
+让每个消息携带一个全局的唯一ID，即可保证消息的幂等性，具体消费过程为：
+
+1. 消费者获取到消息后先根据id去查询redis/db是否存在该消息。
+2. 如果不存在，则正常消费，消费完毕后写入redis/db。
+3. 如果存在，则证明消息被消费过，直接丢弃。
+
+**生产者**
+
+```javascript
+@PostMapping("/send")
+public void sendMessage(){
+
+    JSONObject jsonObject = new JSONObject();
+    jsonObject.put("message","Java旅途");
+    String json = jsonObject.toJSONString();
+    Message message = MessageBuilder.withBody(json.getBytes()).setContentType(MessageProperties.CONTENT_TYPE_JSON).setContentEncoding("UTF-8").setMessageId(UUID.randomUUID()+"").build();
+    amqpTemplate.convertAndSend("javatrip",message);
+}
+```
+
+**消费者**
+
+```javascript
+@Component
+@RabbitListener(queuesToDeclare = @Queue(value = "javatrip", durable = "true"))
+public class Consumer {
+
+    @RabbitHandler
+    public void receiveMessage(Message message) throws Exception {
+
+        Jedis jedis = new Jedis("localhost", 6379);
+
+        String messageId = message.getMessageProperties().getMessageId();
+        String msg = new String(message.getBody(),"UTF-8");
+        System.out.println("接收到的消息为："+msg+"==消息id为："+messageId);
+
+        String messageIdRedis = jedis.get("messageId");
+
+        if(messageId == messageIdRedis){
+            return;
+        }
+        JSONObject jsonObject = JSONObject.parseObject(msg);
+        String email = jsonObject.getString("message");
+        jedis.set("messageId",messageId);
+    }
+}
+```
+
+
+
+# 防止消息丢失
+
+
+
+### 第一种：消息持久化
+
+RabbitMQ 的消息默认存放在内存上面，如果不特别声明设置，消息不会持久化保存到硬盘上面的，如果节点重启或者意外crash掉，消息就会丢失。
+
+所以就要对消息进行持久化处理。如何持久化，下面具体说明下：
+
+要想做到消息持久化，必须满足以下三个条件，缺一不可。
+
+1） Exchange 设置持久化
+
+2）Queue 设置持久化
+
+3）Message持久化发送：发送消息设置发送模式deliveryMode=2，代表持久化消息
+
+### 第二种：ACK确认机制
+
+多个消费者同时收取消息，比如消息接收到一半的时候，一个消费者死掉了(逻辑复杂时间太长，超时了或者消费被停机或者网络断开链接)，如何保证消息不丢？
+
+这个使用就要使用Message acknowledgment 机制，就是消费端消费完成要通知服务端，服务端才把消息从内存删除。
+
+这样就解决了，及时一个消费者出了问题，没有同步消息给服务端，还有其他的消费端去消费，保证了消息不丢。
+
+
+
+# 死信
+
+## 1.死信产生的原因
+
+死信，在官网中对应的单词为“Dead Letter”，可以看出翻译确实非常的简单粗暴。那么死信是个什么东西呢？
+
+“死信”是RabbitMQ中的一种消息机制，当你在消费消息时，如果队列里的消息出现以下情况：
+
+1. 消息被否定确认，使用 `channel.basicNack` 或 `channel.basicReject` ，并且此时`requeue` 属性被设置为`false`。
+2. 消息在队列的存活时间超过设置的TTL时间。
+3. 消息队列的消息数量已经超过最大队列长度。
+
+那么该消息将成为“死信”。
+
+“死信”消息会被RabbitMQ进行特殊处理，如果配置了死信队列信息，那么该消息将会被丢进死信队列中，如果没有配置，则该消息将会被丢弃
+
+
+
+
+
 # 3. Spring AMQP
 
 ## 3.1.   简介
