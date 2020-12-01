@@ -854,19 +854,19 @@ spring:
 >
 >第二步
 >
->![image-20200904191422446](D:%5CExerciseProjects%5Cguli_mall%5C1.nacos%E3%80%81gateway%5Cnacos_gateway.assets%5Cimage-20200904191422446.png)
+>![image-20200904191422446]( nacos_gateway.assets%5Cimage-20200904191422446.png)
 >
 >第三步
 >
->![image-20200904191654140](D:%5CExerciseProjects%5Cguli_mall%5C1.nacos%E3%80%81gateway%5Cnacos_gateway.assets%5Cimage-20200904191654140.png)
+>![image-20200904191654140]( nacos_gateway.assets%5Cimage-20200904191654140.png)
 >
 >第四步
 >
->![image-20200904191727049](D:%5CExerciseProjects%5Cguli_mall%5C1.nacos%E3%80%81gateway%5Cnacos_gateway.assets%5Cimage-20200904191727049.png)
+>![image-20200904191727049](nacos_gateway.assets%5Cimage-20200904191727049.png)
 
 ### 第四步：启动所有服务
 
-![image-20200904203106732](D:%5CExerciseProjects%5Cguli_mall%5C1.nacos%E3%80%81gateway%5Cnacos_gateway.assets%5Cimage-20200904203106732.png)
+![image-20200904203106732](nacos_gateway.assets%5Cimage-20200904203106732.png)
 
 
 
@@ -876,11 +876,11 @@ spring:
 
 负载到8071
 
-![image-20200904203227168](D:%5CExerciseProjects%5Cguli_mall%5C1.nacos%E3%80%81gateway%5Cnacos_gateway.assets%5Cimage-20200904203227168.png)
+![image-20200904203227168](nacos_gateway.assets%5Cimage-20200904203227168.png)
 
 负载到8080
 
-![image-20200904203239566](D:%5CExerciseProjects%5Cguli_mall%5C1.nacos%E3%80%81gateway%5Cnacos_gateway.assets%5Cimage-20200904203239566.png)
+![image-20200904203239566](nacos_gateway.assets%5Cimage-20200904203239566.png)
 
 ## 3.2.   路由规则详解
 
