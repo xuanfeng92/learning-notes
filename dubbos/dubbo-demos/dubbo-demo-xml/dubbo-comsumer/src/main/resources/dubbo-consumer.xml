@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:dubbo="http://dubbo.apache.org/schema/dubbo"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://dubbo.apache.org/schema/dubbo http://dubbo.apache.org/schema/dubbo/dubbo.xsd">
+
+    <!-- 1.消费方应用名，用于计算依赖关系，不是匹配条件，不要与提供方一样 -->
+    <dubbo:application name="dubbo-consumer"  />
+
+    <!-- 2.使用multicast广播注册中心暴露发现服务地址 -->
+    <dubbo:registry address="zookeeper://192.168.231.138:2181" />
+
+    <!-- 3.生成远程服务代理，（注意，如果一个接口提供者有多个实现，需要指定group来指定调用哪个具体的实现） -->
+    <dubbo:reference id="userService" interface="com.xiaohui.dubbo.services.IUserService" group="userService" />
+    <dubbo:reference id="userService2" interface="com.xiaohui.dubbo.services.IUserService" group="userService2" />
+</beans>
